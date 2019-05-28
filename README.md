@@ -1,2 +1,2 @@
 # NuttyGrinder
-##### A helpful aid for This is Language Nutty Tilez game.
+##### A helpful aid for the This is Language Nutty Tilez game.
