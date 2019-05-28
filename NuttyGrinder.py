@@ -123,7 +123,7 @@ class NuttyGrinder:
         self.driver.close()
 
 
-grinder = NuttyGrinder("tbird2@k12albemarle.org", "#Warriors")
+grinder = NuttyGrinder("USERNAME", "PASSWORD")
 
 
 def grind():
