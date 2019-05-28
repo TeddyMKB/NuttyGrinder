@@ -1,3 +1,4 @@
+import selenium
 from selenium import webdriver
 import time
 import matplotlib.pyplot as plt
@@ -6,98 +7,136 @@ from PIL import Image
 import pytesseract
 from selenium.webdriver.common.keys import Keys
 
-url = 'http://nutty.thisislanguage.com/game/nutty_tilez'
 
-uname = input('enter TIL username->')
-pword = input('enter TIL password->')
+class NuttyGrinder:
+    url = 'http://nutty.thisislanguage.com/game/nutty_tilez'
 
-driver = webdriver.Firefox()
+    def __init__(self, u, p):
+        self.uname = u
+        self.pword = p
+        self.driver = webdriver.Firefox()
+        self.driver.get(NuttyGrinder.url)
+        self.driver.find_element_by_class_name("login_btn").click()
+        self.driver.find_element_by_name("email").send_keys(self.uname)
+        self.driver.find_element_by_name("password").send_keys(self.pword)
+        self.driver.find_element_by_id("submit").click()
+        self.driver.get('http://nutty.thisislanguage.com/game/nutty_tilez')
 
-driver.get(url)
+        self.raw_words = []
+        self.words = []
 
-driver.find_element_by_class_name("login_btn").click()
+        self.level = int(self.driver.find_element_by_class_name("selected_tile").get_attribute("data-tile"))
 
-driver.find_element_by_name("email").send_keys(uname)
-driver.find_element_by_name("password").send_keys(pword)
-driver.find_element_by_id("submit").click()
+    def get_words(self):
+        for tile in range(1, self.level+1):
+            self.driver.find_element_by_css_selector('div[data-tile="' + str(tile) + '"]').click()
+            time.sleep(1)
+            wordsets = self.driver.find_elements_by_tag_name("tr")
+            for wordset in wordsets:
+                self.raw_words.append(wordset.text)
 
-driver.get('http://nutty.thisislanguage.com/game/nutty_tilez')
+            self.driver.find_element_by_class_name("dialogue_close").click()
 
-raw_words = []
+        for word in self.raw_words:
+            print(word.replace("\n", ":"))
+            self.words.append(word.replace("\n", ":"))
 
-for tile in range(1, 3):
-    driver.find_element_by_css_selector('div[data-tile="' + str(tile) + '"]').click()
-    time.sleep(1)
-    trs = driver.find_elements_by_tag_name("tr")
-    for tr in trs:
-        raw_words.append(tr.text)
+        for i in range(len(self.words)):
+            self.words[i] = [self.words[i][0:self.words[i].find(":")], self.words[i][self.words[i].find(":") + 1:
+                                                                                     len(self.words[i])]]
 
-    driver.find_element_by_class_name("dialogue_close").click()
+        print(self.words)
+
+    def init_match(self):
+        self.driver.find_element_by_class_name("selected_tile").click()
+        self.driver.find_element_by_class_name("play_btn").click()
+
+    def game_loop(self):
+        while self.driver.find_element_by_class_name("text").value_of_css_property("display") == "none":
+            print('waiting for start')
+
+        print("game start")
+        while True:
+            if self.driver.find_element_by_class_name("game_over_sign").value_of_css_property("display") == "block":
+                break
+            time.sleep(.01)
+            isBonus = False
+            if self.driver.find_element_by_class_name("bonus_text").value_of_css_property("display") == "none":
+                image = self.driver.execute_script('return document.getElementById("word_canvas").toDataURL("image/png");')
+                isBonus = False
+            else:
+                image = self.driver.execute_script('return document.getElementById("bonus_canvas").toDataURL("image/png");')
+                isBonus = True
+            print(image)
+            fig = plt.figure()
+            plt.axis('off')
+            plt.imshow(mpimg.imread(image))
+            fig.savefig("1.png")
+            plt.clf()
+            plt.close(fig)
+            text = pytesseract.image_to_string("1.png")
+            final = ""
+            print(text)
+            if text.find("(") != -1:
+                final = text[0:text.find("(")].rstrip()
+            elif text.find("{") != -1:
+                final = text[0:text.find("{")].rstrip()
+            else:
+                final = text.rstrip()
+
+            print(final)
+
+            result = ""
+            if isBonus:
+                result = final
+            else:
+                for word in self.words:
+                    if final in word:
+                        result = word[1]
+
+            if self.driver.find_element_by_class_name("game_over_sign").value_of_css_property("display") == "block":
+                break
+
+            print(result)
+            if not isBonus:
+                try:
+                    self.driver.find_element_by_class_name("guess").send_keys(result)
+                    self.driver.find_element_by_class_name("guess").send_keys(Keys.ENTER)
+                except:
+                    break
+            else:
+                try:
+                    self.driver.find_element_by_class_name("bonus_guess").send_keys(result)
+                    self.driver.find_element_by_class_name("bonus_guess").send_keys(Keys.ENTER)
+                except:
+                    break
+
+    def level_up(self):
+        time.sleep(5)
+        self.driver.find_element_by_class_name("end_level_up_btn").click()
+        time.sleep(2)
+        self.game_loop()
+        time.sleep(5)
+        self.driver.find_element_by_class_name("back").click()
+
+    def stop(self):
+        self.driver.close()
 
 
-words = []
-
-for word in raw_words:
-    print(word.replace("\n", ":"))
-    words.append(word.replace("\n", ":"))
-
-for i in range(len(words)):
-    words[i] = [words[i][0:words[i].find(":")], words[i][words[i].find(":") + 1: len(words[i])]]
-
-print(words)
-
-driver.find_element_by_class_name("selected_tile").click()
-driver.find_element_by_class_name("play_btn").click()
-
-while driver.find_element_by_class_name("text").value_of_css_property("display") == "none":
-    print('waiting for start')
-
-print("game start")
-previous = ""
-while True:
-    time.sleep(.01)
-    isBonus = False
-    if driver.find_element_by_class_name("bonus_text").value_of_css_property("display") == "none":
-        image = driver.execute_script('return document.getElementById("word_canvas").toDataURL("image/png");')
-        isBonus = False
-    else:
-        image = driver.execute_script('return document.getElementById("bonus_canvas").toDataURL("image/png");')
-        isBonus = True
-    print(image)
-    fig = plt.figure()
-    plt.axis('off')
-    plt.imshow(mpimg.imread(image))
-    fig.savefig("1.png")
-    plt.clf()
-    plt.close(fig)
-    text = pytesseract.image_to_string("1.png")
-    final = ""
-    print(text)
-    if text.find("(") != -1:
-        final = text[0:text.find("(")].rstrip()
-    elif text.find("{") != -1:
-        final = text[0:text.find("{")].rstrip()
-    else:
-        final = text.rstrip()
-
-    print(final)
-
-    result = ""
-    if isBonus:
-        result = final
-    else:
-        for word in words:
-            if final in word:
-                result = word[1]
+grinder = NuttyGrinder("tbird2@k12albemarle.org", "#Warriors")
 
 
-    print(result)
-    if not isBonus:
-        driver.find_element_by_class_name("guess").send_keys(result)
-        driver.find_element_by_class_name("guess").send_keys(Keys.ENTER)
-    else:
-        driver.find_element_by_class_name("bonus_guess").send_keys(result)
-        driver.find_element_by_class_name("bonus_guess").send_keys(Keys.ENTER)
+def grind():
+    try:
+        grinder.driver.find_element_by_class_name("dismiss").click()
+    except selenium.common.exceptions.ElementNotInteractableException:
+        pass
 
+    time.sleep(5)
+    grinder.get_words()
+    grinder.init_match()
+    grinder.game_loop()
+    grinder.level_up()
+    time.sleep(5)
 
 # end_level_up_btn
