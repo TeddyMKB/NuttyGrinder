@@ -6,6 +6,7 @@ import matplotlib.image as mpimg
 from PIL import Image
 import pytesseract
 from selenium.webdriver.common.keys import Keys
+import cv2 as cv
 
 
 class NuttyGrinder:
@@ -29,13 +30,14 @@ class NuttyGrinder:
 
     def get_words(self):
         for tile in range(1, self.level+1):
+            self.driver.execute_script("arguments[0].scrollIntoView()", self.driver.find_element_by_css_selector('div[data-tile="' + str(tile) + '"]'))
             self.driver.find_element_by_css_selector('div[data-tile="' + str(tile) + '"]').click()
-            time.sleep(1)
             wordsets = self.driver.find_elements_by_tag_name("tr")
             for wordset in wordsets:
                 self.raw_words.append(wordset.text)
 
             self.driver.find_element_by_class_name("dialogue_close").click()
+            time.sleep(.1)
 
         for word in self.raw_words:
             print(word.replace("\n", ":"))
@@ -72,6 +74,7 @@ class NuttyGrinder:
             plt.axis('off')
             plt.imshow(mpimg.imread(image))
             fig.savefig("1.png")
+
             plt.clf()
             plt.close(fig)
             text = pytesseract.image_to_string("1.png")
@@ -81,6 +84,16 @@ class NuttyGrinder:
                 final = text[0:text.find("(")].rstrip()
             elif text.find("{") != -1:
                 final = text[0:text.find("{")].rstrip()
+            elif text.find("@") != -1:
+                final = text[0:text.find("@")].rstrip()
+            elif text == "e":
+                final = "à"
+            elif text == "la matiéere":
+                final = "la matière"
+            elif text == "honnéte":
+                final = "honnête"
+            elif text == "I'odeur":
+                final = "l'odeur"
             else:
                 final = text.rstrip()
 
@@ -123,7 +136,7 @@ class NuttyGrinder:
         self.driver.close()
 
 
-grinder = NuttyGrinder("USERNAME", "PASSWORD")
+grinder = NuttyGrinder("tbird2@k12albemarle.org", "#Warriors")
 
 
 def grind():
@@ -139,4 +152,6 @@ def grind():
     grinder.level_up()
     time.sleep(5)
 
+
+grind()
 # end_level_up_btn
