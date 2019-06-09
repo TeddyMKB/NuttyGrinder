@@ -77,7 +77,10 @@ class NuttyGrinder:
 
             plt.clf()
             plt.close(fig)
-            text = pytesseract.image_to_string("1.png")
+            if isBonus:
+                text = pytesseract.image_to_string("1.png", lang="fra")
+            else:
+                text = pytesseract.image_to_string("1.png", lang="eng")
             final = ""
             print(text)
             if text.find("(") != -1:
