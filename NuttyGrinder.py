@@ -3,38 +3,41 @@ from selenium import webdriver
 import time
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-from PIL import Image
 import pytesseract
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.firefox.options import Options
 import cv2 as cv
+import pickle
 
 
 class NuttyGrinder:
     url = 'http://nutty.thisislanguage.com/game/nutty_tilez'
 
     def __init__(self, u, p):
-        self.uname = u
-        self.pword = p
-        self.driver = webdriver.Firefox()
+        self.options = Options()
+        self.options.headless = True
+        self.username = u
+        self.password = p
+        self.driver = webdriver.Firefox(options=self.options)
         self.driver.get(NuttyGrinder.url)
         self.driver.find_element_by_class_name("login_btn").click()
-        self.driver.find_element_by_name("email").send_keys(self.uname)
-        self.driver.find_element_by_name("password").send_keys(self.pword)
+        self.driver.find_element_by_name("email").send_keys(self.username)
+        self.driver.find_element_by_name("password").send_keys(self.password)
         self.driver.find_element_by_id("submit").click()
         self.driver.get('http://nutty.thisislanguage.com/game/nutty_tilez')
 
         self.raw_words = []
         self.words = []
 
-        self.level = int(self.driver.find_element_by_class_name("selected_tile").get_attribute("data-tile"))
+        self.level = 50 # int(self.driver.find_element_by_class_name("selected_tile").get_attribute("data-tile"))
 
     def get_words(self):
         for tile in range(1, self.level+1):
             self.driver.execute_script("arguments[0].scrollIntoView()", self.driver.find_element_by_css_selector('div[data-tile="' + str(tile) + '"]'))
             self.driver.find_element_by_css_selector('div[data-tile="' + str(tile) + '"]').click()
-            wordsets = self.driver.find_elements_by_tag_name("tr")
-            for wordset in wordsets:
-                self.raw_words.append(wordset.text)
+            word_sets = self.driver.find_elements_by_tag_name("tr")
+            for word_set in word_sets:
+                self.raw_words.append(word_set.text)
 
             self.driver.find_element_by_class_name("dialogue_close").click()
             time.sleep(.1)
@@ -49,6 +52,10 @@ class NuttyGrinder:
 
         print(self.words)
 
+    def load_words(self):
+        with open('words.pickle', 'rb') as list:
+            self.words = pickle.load(list)
+
     def init_match(self):
         self.driver.find_element_by_class_name("selected_tile").click()
         self.driver.find_element_by_class_name("play_btn").click()
@@ -62,13 +69,13 @@ class NuttyGrinder:
             if self.driver.find_element_by_class_name("game_over_sign").value_of_css_property("display") == "block":
                 break
             time.sleep(.01)
-            isBonus = False
+            is_bonus = False
             if self.driver.find_element_by_class_name("bonus_text").value_of_css_property("display") == "none":
                 image = self.driver.execute_script('return document.getElementById("word_canvas").toDataURL("image/png");')
-                isBonus = False
+                is_bonus = False
             else:
                 image = self.driver.execute_script('return document.getElementById("bonus_canvas").toDataURL("image/png");')
-                isBonus = True
+                is_bonus = True
             print(image)
             fig = plt.figure()
             plt.axis('off')
@@ -77,10 +84,13 @@ class NuttyGrinder:
 
             plt.clf()
             plt.close(fig)
-            if isBonus:
-                text = pytesseract.image_to_string("1.png", lang="fra")
+
+            img = cv.imread("1.png")
+            img_grayscale = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            if is_bonus:
+                text = pytesseract.image_to_string(img_grayscale, lang="fra")
             else:
-                text = pytesseract.image_to_string("1.png", lang="eng")
+                text = pytesseract.image_to_string(img_grayscale, lang="eng")
             final = ""
             print(text)
             if text.find("(") != -1:
@@ -103,7 +113,7 @@ class NuttyGrinder:
             print(final)
 
             result = ""
-            if isBonus:
+            if is_bonus:
                 result = final
             else:
                 for word in self.words:
@@ -114,7 +124,7 @@ class NuttyGrinder:
                 break
 
             print(result)
-            if not isBonus:
+            if not is_bonus:
                 try:
                     self.driver.find_element_by_class_name("guess").send_keys(result)
                     self.driver.find_element_by_class_name("guess").send_keys(Keys.ENTER)
@@ -149,12 +159,20 @@ def grind():
         pass
 
     time.sleep(5)
-    grinder.get_words()
+    grinder.load_words()
     grinder.init_match()
     grinder.game_loop()
     grinder.level_up()
     time.sleep(5)
 
 
+def pickle_words():
+    g = NuttyGrinder("tbird2@k12albemarle.org", "#Warriors")
+    g.get_words()
+    with open('words.pickle', 'wb') as file:
+        pickle.dump(g.words, file)
+
+
+# pickle_words()
 grind()
 # end_level_up_btn
