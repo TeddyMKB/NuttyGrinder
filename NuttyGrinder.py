@@ -15,7 +15,7 @@ class NuttyGrinder:
 
     def __init__(self, u, p):
         self.options = Options()
-        self.options.headless = True
+        self.options.headless = False
         self.username = u
         self.password = p
         self.driver = webdriver.Firefox(options=self.options)
